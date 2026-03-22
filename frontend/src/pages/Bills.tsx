@@ -52,14 +52,14 @@ export default function Bills() {
         <Tag color={FLOW_COLOR[v]}>{FLOW_LABEL[v]}</Tag>
       ),
     },
+    { title: '商家', dataIndex: 'merchant' },
+    { title: '商品/描述', dataIndex: 'description' },
     {
       title: '分类',
       dataIndex: 'category',
       width: 100,
       render: (v: string) => v || '-',
     },
-    { title: '商家', dataIndex: 'merchant' },
-    { title: '描述', dataIndex: 'description' },
     {
       title: '金额',
       dataIndex: 'amount',

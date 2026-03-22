@@ -1,27 +1,19 @@
-import { Card, Upload, Button, Select, message, Tabs, Alert, Space } from 'antd'
-import { UploadOutlined, InboxOutlined } from '@ant-design/icons'
-import { useState, useRef } from 'react'
+import { Card, Upload, Select, message, Tabs, Alert, Space } from 'antd'
+import { InboxOutlined } from '@ant-design/icons'
+import { useState } from 'react'
 import { uploadCSV, uploadImage } from '@/api/bills'
 
 const { Dragger } = Upload
-const { Option } = Select
 
 export default function Import() {
-  const [csvSource, setCsvSource] = useState<'wechat' | 'alipay'>('wechat')
-  const csvSourceRef = useRef<'wechat' | 'alipay'>('wechat')
   const [csvLoading, setCsvLoading] = useState(false)
   const [imgLoading, setImgLoading] = useState(false)
-
-  const handleSourceChange = (v: 'wechat' | 'alipay') => {
-    setCsvSource(v)
-    csvSourceRef.current = v
-  }
 
   const handleCsvUpload = async (file: File) => {
     setCsvLoading(true)
     try {
-      const res: any = await uploadCSV(file, csvSourceRef.current)
-      message.success(`导入完成：共 ${res.total} 条，成功 ${res.success} 条，跳过重复 ${res.skipped} 条`)
+      const res: any = await uploadCSV(file)
+      message.success(`导入完成（${res.source === 'wechat' ? '微信' : '支付宝'}）：共 ${res.total} 条，成功 ${res.success} 条，跳过重复 ${res.skipped} 条`)
     } catch (err: any) {
       const detail = err?.response?.data?.detail || err?.message || '未知错误'
       message.error(`导入失败：${detail}`)
@@ -60,13 +52,6 @@ export default function Import() {
               </ul>
             }
           />
-          <div>
-            <span style={{ marginRight: 8 }}>账单来源：</span>
-            <Select value={csvSource} onChange={handleSourceChange} style={{ width: 120 }}>
-              <Option value="wechat">微信</Option>
-              <Option value="alipay">支付宝</Option>
-            </Select>
-          </div>
           <Dragger
             accept=".csv,.xlsx,.xls"
             beforeUpload={handleCsvUpload}

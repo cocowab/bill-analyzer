@@ -13,9 +13,9 @@ const { Header, Sider, Content } = Layout
 const menuItems = [
   { key: '/', icon: <DashboardOutlined />, label: '概览' },
   { key: '/bills', icon: <UnorderedListOutlined />, label: '账单明细' },
+  { key: '/import', icon: <UploadOutlined />, label: '导入账单' },
   { key: '/stats', icon: <BarChartOutlined />, label: '统计分析' },
   { key: '/analysis', icon: <RobotOutlined />, label: 'AI 消费建议' },
-  { key: '/import', icon: <UploadOutlined />, label: '导入账单' },
 ]
 
 export default function MainLayout() {

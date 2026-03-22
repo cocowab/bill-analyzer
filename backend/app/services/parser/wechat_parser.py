@@ -4,6 +4,7 @@
 列：交易时间,交易类型,交易对方,商品,收/支,金额(元),支付方式,当前状态,交易单号,商户单号,备注
 """
 import os
+import re
 import pandas as pd
 import json
 from datetime import datetime
@@ -71,8 +72,8 @@ def parse_wechat_csv(filepath: str, db: Session) -> dict:
                 skip_count += 1
                 continue
 
-            amount_str = str(raw.get("金额(元)", "0")).replace("¥", "").strip()
-            amount = float(amount_str)
+            amount_str = re.sub(r"[^\d.]", "", str(raw.get("金额(元)", "0")))
+            amount = float(amount_str) if amount_str else 0.0
 
             tx_no = str(raw.get("交易单号", "")).strip()
             date_str = str(raw.get("交易时间", "")).strip()

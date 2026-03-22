@@ -34,10 +34,9 @@ export const getCategoryStats = (params: {
   week?: number
 }): Promise<CategoryStat[]> => request.get('/stats/category', { params })
 
-export const uploadCSV = (file: File, source: 'wechat' | 'alipay') => {
+export const uploadCSV = (file: File) => {
   const form = new FormData()
   form.append('file', file)
-  form.append('source', source)
   return request.post('/upload/csv', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
