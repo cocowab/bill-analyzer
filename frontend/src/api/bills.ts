@@ -6,8 +6,10 @@ export const getBills = (params: {
   year?: number
   month?: number
   week?: number
+  day?: number
   flow_type?: string
   category?: string
+  sort_by?: string
   page?: number
   size?: number
 }): Promise<TransactionListResponse> => request.get('/bills', { params })

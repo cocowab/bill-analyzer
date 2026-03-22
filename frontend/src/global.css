@@ -1,0 +1,44 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #f0f2f5;
+  margin: 0;
+}
+
+/* 侧边栏菜单激活项样式 */
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: rgba(64, 150, 255, 0.2) !important;
+}
+
+/* 表格斑马纹 */
+.table-row-stripe td {
+  background: #fafafa !important;
+}
+
+/* 表格行悬停 */
+.ant-table-tbody > tr:hover > td {
+  background: #f0f7ff !important;
+}
+
+/* 卡片标题 */
+.ant-card-head {
+  border-bottom-color: #f0f0f0 !important;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}

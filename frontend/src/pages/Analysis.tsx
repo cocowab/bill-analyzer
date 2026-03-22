@@ -1,8 +1,10 @@
-import { Card, Button, Select, Alert } from 'antd'
-import { RobotOutlined } from '@ant-design/icons'
+import { Card, Button, Select, Alert, Space, Typography, Divider } from 'antd'
+import { RobotOutlined, StopOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useState, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
 
 const { Option } = Select
+const { Text } = Typography
 
 export default function Analysis() {
   const [months, setMonths] = useState(3)
@@ -40,43 +42,101 @@ export default function Analysis() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <Card title="AI 消费分析">
+    <div>
+      <Card
+        style={{ borderRadius: 12, boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}
+        title={
+          <Space>
+            <RobotOutlined style={{ color: '#722ed1' }} />
+            <span style={{ fontWeight: 600 }}>AI 消费分析报告</span>
+          </Space>
+        }
+      >
         <Alert
           type="info"
-          style={{ marginBottom: 16 }}
+          showIcon
+          style={{ marginBottom: 20 }}
           message="AI 分析会根据你的消费数据生成个性化报告，包括消费结构分析、趋势对比和节省建议。需配置 ANTHROPIC_API_KEY。"
         />
-        <div style={{ marginBottom: 16 }}>
-          <span style={{ marginRight: 8 }}>分析近</span>
-          <Select value={months} onChange={setMonths} style={{ width: 80 }}>
-            <Option value={1}>1个月</Option>
-            <Option value={3}>3个月</Option>
-            <Option value={6}>6个月</Option>
-            <Option value={12}>12个月</Option>
+
+        <Space size={12} align="center" style={{ marginBottom: 20 }}>
+          <Text>分析近</Text>
+          <Select value={months} onChange={setMonths} style={{ width: 90 }} disabled={loading}>
+            <Option value={1}>1 个月</Option>
+            <Option value={3}>3 个月</Option>
+            <Option value={6}>6 个月</Option>
+            <Option value={12}>12 个月</Option>
           </Select>
-          <span style={{ marginLeft: 8, marginRight: 16 }}>的数据</span>
-          {!loading
-            ? <Button type="primary" icon={<RobotOutlined />} onClick={startAnalysis}>生成分析报告</Button>
-            : <Button danger onClick={stopAnalysis}>停止生成</Button>
-          }
-        </div>
+          <Text>的账单数据</Text>
+          {!loading ? (
+            <Button
+              type="primary"
+              icon={<ThunderboltOutlined />}
+              onClick={startAnalysis}
+              style={{ background: 'linear-gradient(135deg, #722ed1, #4096ff)', border: 'none' }}
+            >
+              生成分析报告
+            </Button>
+          ) : (
+            <Button danger icon={<StopOutlined />} onClick={stopAnalysis}>
+              停止生成
+            </Button>
+          )}
+        </Space>
 
         {content && (
-          <Card
-            style={{ background: '#fafafa', border: '1px solid #f0f0f0' }}
-            styles={{ body: { whiteSpace: 'pre-wrap', lineHeight: 1.8 } }}
-          >
-            {content}
-            {loading && <span style={{ display: 'inline-block', animation: 'blink 1s step-end infinite' }}>▌</span>}
-          </Card>
+          <>
+            <Divider style={{ margin: '0 0 16px' }} />
+            <div
+              style={{
+                background: '#fafafa',
+                borderRadius: 8,
+                padding: '20px 24px',
+                border: '1px solid #f0f0f0',
+                lineHeight: 1.9,
+                fontSize: 14,
+              }}
+            >
+              <div style={{ whiteSpace: 'pre-wrap' }}>
+                {content}
+                {loading && (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: 2,
+                      height: '1em',
+                      background: '#722ed1',
+                      marginLeft: 2,
+                      verticalAlign: 'text-bottom',
+                      animation: 'blink 1s step-end infinite',
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          </>
         )}
+
         {!content && !loading && (
-          <div style={{ textAlign: 'center', padding: 48, color: '#999' }}>
-            点击"生成分析报告"开始 AI 分析
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '60px 0',
+              color: '#bbb',
+            }}
+          >
+            <RobotOutlined style={{ fontSize: 48, marginBottom: 12, color: '#ddd' }} />
+            <div style={{ fontSize: 14 }}>点击"生成分析报告"开始 AI 分析</div>
           </div>
         )}
       </Card>
+
+      <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+      `}</style>
     </div>
   )
 }
