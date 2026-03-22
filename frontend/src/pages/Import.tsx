@@ -13,7 +13,10 @@ export default function Import() {
     setCsvLoading(true)
     try {
       const res: any = await uploadCSV(file)
-      message.success(`导入完成（${res.source === 'wechat' ? '微信' : '支付宝'}）：共 ${res.total} 条，成功 ${res.success} 条，跳过重复 ${res.skipped} 条`)
+      const parts = [`共 ${res.total} 条`, `成功 ${res.success} 条`]
+      if (res.skipped) parts.push(`跳过重复 ${res.skipped} 条`)
+      if (res.filtered) parts.push(`过滤非收支 ${res.filtered} 条`)
+      message.success(`导入完成（${res.source === 'wechat' ? '微信' : '支付宝'}）：${parts.join('，')}`)
     } catch (err: any) {
       const detail = err?.response?.data?.detail || err?.message || '未知错误'
       message.error(`导入失败：${detail}`)

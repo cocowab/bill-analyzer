@@ -55,7 +55,8 @@ def parse_wechat_csv(filepath: str, db: Session) -> dict:
     df.columns = [c.strip() for c in df.columns]
 
     success_count = 0
-    skip_count = 0
+    skip_count = 0   # 重复单号跳过
+    filtered_count = 0  # 非收入/支出过滤
     errors = []
 
     for _, row in df.iterrows():
@@ -68,8 +69,7 @@ def parse_wechat_csv(filepath: str, db: Session) -> dict:
             elif flow_str == "支出":
                 flow_type = "expense"
             else:
-                # 不统计非收入/支出记录（如转账、退款等）
-                skip_count += 1
+                filtered_count += 1
                 continue
 
             amount_str = re.sub(r"[^\d.]", "", str(raw.get("金额(元)", "0")))
@@ -128,5 +128,6 @@ def parse_wechat_csv(filepath: str, db: Session) -> dict:
         "total": len(df),
         "success": success_count,
         "skipped": skip_count,
+        "filtered": filtered_count,
         "errors": len(errors),
     }
