@@ -81,27 +81,49 @@ def get_timeline(
     else:
         end_dt = datetime(ey, em + 1, 1)
 
-    rows = (
-        db.query(
-            extract("year", Transaction.date).label("y"),
-            extract("month", Transaction.date).label("m"),
-            Transaction.flow_type,
-            func.sum(Transaction.amount).label("total"),
+    if period == "day":
+        rows = (
+            db.query(
+                extract("year", Transaction.date).label("y"),
+                extract("month", Transaction.date).label("m"),
+                extract("day", Transaction.date).label("d"),
+                Transaction.flow_type,
+                func.sum(Transaction.amount).label("total"),
+            )
+            .filter(Transaction.date >= start_dt, Transaction.date < end_dt)
+            .group_by("y", "m", "d", Transaction.flow_type)
+            .all()
         )
-        .filter(Transaction.date >= start_dt, Transaction.date < end_dt)
-        .group_by("y", "m", Transaction.flow_type)
-        .all()
-    )
-
-    data: dict = {}
-    for row in rows:
-        key = f"{int(row.y)}-{int(row.m):02d}"
-        if key not in data:
-            data[key] = {"income": 0.0, "expense": 0.0}
-        if row.flow_type == "income":
-            data[key]["income"] = float(row.total)
-        elif row.flow_type == "expense":
-            data[key]["expense"] = float(row.total)
+        data: dict = {}
+        for row in rows:
+            key = f"{int(row.y)}-{int(row.m):02d}-{int(row.d):02d}"
+            if key not in data:
+                data[key] = {"income": 0.0, "expense": 0.0}
+            if row.flow_type == "income":
+                data[key]["income"] = float(row.total)
+            elif row.flow_type == "expense":
+                data[key]["expense"] = float(row.total)
+    else:
+        rows = (
+            db.query(
+                extract("year", Transaction.date).label("y"),
+                extract("month", Transaction.date).label("m"),
+                Transaction.flow_type,
+                func.sum(Transaction.amount).label("total"),
+            )
+            .filter(Transaction.date >= start_dt, Transaction.date < end_dt)
+            .group_by("y", "m", Transaction.flow_type)
+            .all()
+        )
+        data: dict = {}
+        for row in rows:
+            key = f"{int(row.y)}-{int(row.m):02d}"
+            if key not in data:
+                data[key] = {"income": 0.0, "expense": 0.0}
+            if row.flow_type == "income":
+                data[key]["income"] = float(row.total)
+            elif row.flow_type == "expense":
+                data[key]["expense"] = float(row.total)
 
     result = [
         {"date": k, "income": v["income"], "expense": v["expense"]}

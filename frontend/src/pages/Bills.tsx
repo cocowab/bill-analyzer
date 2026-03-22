@@ -1,6 +1,8 @@
 import { Table, Tag, Select, DatePicker, Row, Col, Card, Space, Button, Popconfirm, message } from 'antd'
 import { useEffect, useState } from 'react'
 import dayjs from 'dayjs'
+import isoWeek from 'dayjs/plugin/isoWeek'
+dayjs.extend(isoWeek)
 import { getBills, deleteBill } from '@/api/bills'
 import type { Transaction, PeriodType } from '@/types'
 
@@ -13,6 +15,7 @@ export default function Bills() {
   const [period, setPeriod] = useState<PeriodType>('month')
   const [year, setYear] = useState(dayjs().year())
   const [month, setMonth] = useState(dayjs().month() + 1)
+  const [week, setWeek] = useState(() => dayjs().isoWeek())
   const [flowType, setFlowType] = useState<string | undefined>()
   const [data, setData] = useState<Transaction[]>([])
   const [total, setTotal] = useState(0)
@@ -21,7 +24,15 @@ export default function Bills() {
 
   const fetchData = () => {
     setLoading(true)
-    getBills({ period, year, month, flow_type: flowType, page, size: 20 })
+    getBills({
+      period,
+      year,
+      month: period === 'month' ? month : undefined,
+      week: period === 'week' ? week : undefined,
+      flow_type: flowType,
+      page,
+      size: 20,
+    })
       .then((res) => {
         setData(res.items)
         setTotal(res.total)
@@ -29,7 +40,7 @@ export default function Bills() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchData() }, [period, year, month, flowType, page])
+  useEffect(() => { fetchData() }, [period, year, month, week, flowType, page])
 
   const handleDelete = async (id: number) => {
     await deleteBill(id)
@@ -107,6 +118,20 @@ export default function Bills() {
                   if (d) {
                     setYear(d.year())
                     setMonth(d.month() + 1)
+                  }
+                }}
+              />
+            </Col>
+          )}
+          {period === 'week' && (
+            <Col>
+              <DatePicker
+                picker="week"
+                value={dayjs().year(year).isoWeek(week)}
+                onChange={(d) => {
+                  if (d) {
+                    setYear(d.isoWeekYear())
+                    setWeek(d.isoWeek())
                   }
                 }}
               />

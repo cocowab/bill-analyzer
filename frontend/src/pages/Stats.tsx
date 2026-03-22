@@ -1,4 +1,5 @@
-import { Card, Row, Col, Select, DatePicker } from 'antd'
+import { Card, Row, Col, Select, DatePicker, Switch, Statistic } from 'antd'
+import { ArrowUpOutlined, ArrowDownOutlined, WalletOutlined } from '@ant-design/icons'
 import { useEffect, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import dayjs from 'dayjs'
@@ -14,26 +15,45 @@ export default function Stats() {
   const [timeline, setTimeline] = useState<TimelinePoint[]>([])
   const [categories, setCategories] = useState<CategoryStat[]>([])
   const [summary, setSummary] = useState<PeriodSummary | null>(null)
+  const [showBalance, setShowBalance] = useState(false)
 
   useEffect(() => {
-    getTimeline({ period: 'month', start: `${year - 1}-${String(month).padStart(2, '0')}`, end: `${year}-${String(month).padStart(2, '0')}` })
-      .then(setTimeline)
-    getCategoryStats({ period, year, month })
-      .then(setCategories)
-    getSummary({ period, year, month })
-      .then(setSummary)
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`
+    const timelineParams = period === 'year'
+      ? { period: 'month', start: `${year}-01`, end: `${year}-12` }
+      : { period: 'day', start: monthStr, end: monthStr }
+    getTimeline(timelineParams).then(setTimeline)
+    getCategoryStats({ period, year, month: period === 'month' ? month : undefined }).then(setCategories)
+    getSummary({ period, year, month: period === 'month' ? month : undefined }).then(setSummary)
   }, [period, year, month])
 
-  const lineOption = {
-    tooltip: { trigger: 'axis' },
-    legend: { data: ['收入', '支出'] },
-    xAxis: { type: 'category', data: timeline.map((t) => t.date) },
-    yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
-    series: [
-      { name: '收入', type: 'line', smooth: true, data: timeline.map((t) => t.income), itemStyle: { color: '#52c41a' } },
-      { name: '支出', type: 'line', smooth: true, data: timeline.map((t) => t.expense), itemStyle: { color: '#ff4d4f' } },
-    ],
-  }
+  const lineOption = showBalance
+    ? {
+        tooltip: { trigger: 'axis', valueFormatter: (v: number) => `¥${v.toFixed(2)}` },
+        legend: { data: ['结余'] },
+        xAxis: { type: 'category', data: timeline.map((t) => t.date) },
+        yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+        series: [
+          {
+            name: '结余',
+            type: 'line',
+            smooth: true,
+            data: timeline.map((t) => +(t.income - t.expense).toFixed(2)),
+            itemStyle: { color: '#1677ff' },
+            areaStyle: { color: 'rgba(22,119,255,0.08)' },
+          },
+        ],
+      }
+    : {
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['收入', '支出'] },
+        xAxis: { type: 'category', data: timeline.map((t) => t.date) },
+        yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+        series: [
+          { name: '收入', type: 'line', smooth: true, data: timeline.map((t) => t.income), itemStyle: { color: '#52c41a' } },
+          { name: '支出', type: 'line', smooth: true, data: timeline.map((t) => t.expense), itemStyle: { color: '#ff4d4f' } },
+        ],
+      }
 
   const pieOption = {
     tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
@@ -68,33 +88,60 @@ export default function Stats() {
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]}>
-        <Col span={24}>
-          <Card title="收支趋势（近12个月）">
-            <ReactECharts option={lineOption} style={{ height: 300 }} />
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={8}>
+          <Card>
+            <Statistic
+              title="收入"
+              value={summary?.income ?? 0}
+              precision={2}
+              prefix={<ArrowUpOutlined style={{ color: '#52c41a' }} />}
+              suffix="元"
+              valueStyle={{ color: '#52c41a' }}
+            />
           </Card>
         </Col>
-        <Col xs={24} md={12}>
-          <Card title={`${year}年${month}月 消费分类`}>
+        <Col xs={24} sm={8}>
+          <Card>
+            <Statistic
+              title="支出"
+              value={summary?.expense ?? 0}
+              precision={2}
+              prefix={<ArrowDownOutlined style={{ color: '#ff4d4f' }} />}
+              suffix="元"
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card>
+            <Statistic
+              title="结余"
+              value={summary?.balance ?? 0}
+              precision={2}
+              prefix={<WalletOutlined />}
+              suffix="元"
+              valueStyle={{ color: (summary?.balance ?? 0) >= 0 ? '#1677ff' : '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]}>
+        <Col span={24}>
+          <Card
+            title={period === 'year' ? `${year}年 月度收支趋势` : `${year}年${month}月 每日收支趋势`}
+            extra={<Switch checkedChildren="结余" unCheckedChildren="收支" checked={showBalance} onChange={setShowBalance} />}
+          >
+            <ReactECharts option={lineOption} notMerge style={{ height: 300 }} />
+          </Card>
+        </Col>
+        <Col span={24}>
+          <Card title={period === 'year' ? `${year}年 消费分类` : `${year}年${month}月 消费分类`}>
             {categories.length > 0
               ? <ReactECharts option={pieOption} style={{ height: 320 }} />
               : <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>暂无数据</div>
             }
-          </Card>
-        </Col>
-        <Col xs={24} md={12}>
-          <Card title={`${year}年${month}月 收支汇总`}>
-            <div style={{ padding: '16px 0' }}>
-              <div style={{ marginBottom: 12, fontSize: 16 }}>
-                收入：<span style={{ color: '#52c41a', fontWeight: 600 }}>¥{(summary?.income ?? 0).toFixed(2)}</span>
-              </div>
-              <div style={{ marginBottom: 12, fontSize: 16 }}>
-                支出：<span style={{ color: '#ff4d4f', fontWeight: 600 }}>¥{(summary?.expense ?? 0).toFixed(2)}</span>
-              </div>
-              <div style={{ fontSize: 16 }}>
-                结余：<span style={{ color: '#1677ff', fontWeight: 600 }}>¥{(summary?.balance ?? 0).toFixed(2)}</span>
-              </div>
-            </div>
           </Card>
         </Col>
       </Row>
