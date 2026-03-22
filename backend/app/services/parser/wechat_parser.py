@@ -89,7 +89,7 @@ def parse_wechat_csv(filepath: str, db: Session) -> dict:
 
             merchant = str(raw.get("交易对方", "")).strip()
             description = str(raw.get("商品", "")).strip()
-            category = classify(merchant=merchant, description=description)
+            category = classify(merchant=merchant, description=description, flow_type=flow_type)
 
             tx = Transaction(
                 date=date,

@@ -76,7 +76,7 @@ def parse_alipay_csv(filepath: str, db: Session) -> dict:
             merchant = str(raw.get("交易对方", "")).strip()
             description = str(raw.get("商品说明", "")).strip()
             alipay_cat = str(raw.get("交易分类", "")).strip()
-            category = classify(merchant=merchant, description=description, alipay_category=alipay_cat)
+            category = classify(merchant=merchant, description=description, alipay_category=alipay_cat, flow_type=flow_type)
 
             tx = Transaction(
                 date=date,

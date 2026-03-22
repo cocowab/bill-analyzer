@@ -1,4 +1,4 @@
-import { Card, Row, Col, Select, DatePicker, Switch, Statistic } from 'antd'
+import { Card, Row, Col, Select, DatePicker, Switch, Statistic, Segmented } from 'antd'
 import { ArrowUpOutlined, ArrowDownOutlined, WalletOutlined } from '@ant-design/icons'
 import { useEffect, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
@@ -16,6 +16,7 @@ export default function Stats() {
   const [categories, setCategories] = useState<CategoryStat[]>([])
   const [summary, setSummary] = useState<PeriodSummary | null>(null)
   const [showBalance, setShowBalance] = useState(false)
+  const [pieFlowType, setPieFlowType] = useState<'expense' | 'income'>('expense')
 
   useEffect(() => {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`
@@ -23,9 +24,12 @@ export default function Stats() {
       ? { period: 'month', start: `${year}-01`, end: `${year}-12` }
       : { period: 'day', start: monthStr, end: monthStr }
     getTimeline(timelineParams).then(setTimeline)
-    getCategoryStats({ period, year, month: period === 'month' ? month : undefined }).then(setCategories)
     getSummary({ period, year, month: period === 'month' ? month : undefined }).then(setSummary)
   }, [period, year, month])
+
+  useEffect(() => {
+    getCategoryStats({ period, year, month: period === 'month' ? month : undefined, flow_type: pieFlowType }).then(setCategories)
+  }, [period, year, month, pieFlowType])
 
   const lineOption = showBalance
     ? {
@@ -137,9 +141,18 @@ export default function Stats() {
           </Card>
         </Col>
         <Col span={24}>
-          <Card title={period === 'year' ? `${year}年 消费分类` : `${year}年${month}月 消费分类`}>
+          <Card
+            title={period === 'year' ? `${year}年 分类占比` : `${year}年${month}月 分类占比`}
+            extra={
+              <Segmented
+                value={pieFlowType}
+                onChange={(v) => setPieFlowType(v as 'expense' | 'income')}
+                options={[{ label: '支出', value: 'expense' }, { label: '收入', value: 'income' }]}
+              />
+            }
+          >
             {categories.length > 0
-              ? <ReactECharts option={pieOption} style={{ height: 320 }} />
+              ? <ReactECharts option={pieOption} notMerge style={{ height: 320 }} />
               : <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>暂无数据</div>
             }
           </Card>

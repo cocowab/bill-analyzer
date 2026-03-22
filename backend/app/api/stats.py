@@ -138,15 +138,16 @@ def get_category_stats(
     year: Optional[int] = None,
     month: Optional[int] = None,
     week: Optional[int] = None,
+    flow_type: str = Query("expense"),
     db: Session = Depends(get_db),
 ):
-    """饼图数据：支出按分类汇总"""
+    """饼图数据：按分类汇总（支出或收入）"""
     now = datetime.now()
     y = year or now.year
     m = month or now.month
     w = week or now.isocalendar()[1]
 
-    base = db.query(Transaction).filter(Transaction.flow_type == "expense")
+    base = db.query(Transaction).filter(Transaction.flow_type == flow_type)
     base = _period_filter(base, period, y, m, w)
 
     rows = (

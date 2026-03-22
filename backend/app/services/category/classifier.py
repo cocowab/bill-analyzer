@@ -4,7 +4,7 @@
 微信账单根据商家名/描述关键词规则匹配。
 """
 
-CATEGORY_RULES: dict[str, list[str]] = {
+EXPENSE_RULES: dict[str, list[str]] = {
     "餐饮美食": [
         "餐", "饭", "美食", "外卖", "麦当劳", "肯德基", "星巴克", "瑞幸", "奶茶",
         "火锅", "烧烤", "饿了么", "美团", "咖啡", "面包", "蛋糕", "超市", "便利店",
@@ -36,12 +36,27 @@ CATEGORY_RULES: dict[str, list[str]] = {
     "转账红包": [
         "转账", "红包", "还款",
     ],
+}
+
+INCOME_RULES: dict[str, list[str]] = {
     "工资收入": [
-        "工资", "薪资", "奖金", "绩效",
+        "工资", "薪资", "奖金", "绩效", "薪酬",
+    ],
+    "红包收入": [
+        "红包", "压岁钱",
+    ],
+    "理财收益": [
+        "理财", "基金", "股票", "利息", "分红", "收益", "余额宝", "货币基金", "定期",
+    ],
+    "退款收入": [
+        "退款", "退货", "赔付", "报销", "退",
+    ],
+    "收款转账": [
+        "收款", "转账", "还款", "还钱",
     ],
 }
 
-ALIPAY_CATEGORY_MAP: dict[str, str] = {
+ALIPAY_EXPENSE_MAP: dict[str, str] = {
     "餐饮": "餐饮美食",
     "美食": "餐饮美食",
     "购物": "购物消费",
@@ -56,21 +71,43 @@ ALIPAY_CATEGORY_MAP: dict[str, str] = {
     "缴费": "生活缴费",
     "转账": "转账红包",
     "红包": "转账红包",
+}
+
+ALIPAY_INCOME_MAP: dict[str, str] = {
     "工资": "工资收入",
+    "薪资": "工资收入",
+    "奖金": "工资收入",
+    "理财": "理财收益",
+    "基金": "理财收益",
+    "利息": "理财收益",
+    "退款": "退款收入",
+    "红包": "红包收入",
+    "收款": "收款转账",
+    "转账": "收款转账",
 }
 
 
-def classify(merchant: str = "", description: str = "", alipay_category: str = "") -> str:
+def classify(merchant: str = "", description: str = "", alipay_category: str = "", flow_type: str = "expense") -> str:
     """返回统一分类名，默认'其他'"""
-    if alipay_category:
-        for k, v in ALIPAY_CATEGORY_MAP.items():
-            if k in alipay_category:
-                return v
-
-    text = f"{merchant} {description}".lower()
-    for category, keywords in CATEGORY_RULES.items():
-        for kw in keywords:
-            if kw.lower() in text:
-                return category
-
-    return "其他"
+    if flow_type == "income":
+        if alipay_category:
+            for k, v in ALIPAY_INCOME_MAP.items():
+                if k in alipay_category:
+                    return v
+        text = f"{merchant} {description}".lower()
+        for category, keywords in INCOME_RULES.items():
+            for kw in keywords:
+                if kw.lower() in text:
+                    return category
+        return "其他收入"
+    else:
+        if alipay_category:
+            for k, v in ALIPAY_EXPENSE_MAP.items():
+                if k in alipay_category:
+                    return v
+        text = f"{merchant} {description}".lower()
+        for category, keywords in EXPENSE_RULES.items():
+            for kw in keywords:
+                if kw.lower() in text:
+                    return category
+        return "其他"

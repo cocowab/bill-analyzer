@@ -32,6 +32,7 @@ export const getCategoryStats = (params: {
   year?: number
   month?: number
   week?: number
+  flow_type?: string
 }): Promise<CategoryStat[]> => request.get('/stats/category', { params })
 
 export const uploadCSV = (file: File) => {
