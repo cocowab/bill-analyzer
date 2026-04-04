@@ -57,6 +57,7 @@ def parse_wechat_csv(filepath: str, db: Session) -> dict:
     skip_count = 0   # 重复单号跳过
     filtered_count = 0  # 非收入/支出过滤
     errors = []
+    inserted_ids = []
 
     for _, row in df.iterrows():
         try:
@@ -105,6 +106,8 @@ def parse_wechat_csv(filepath: str, db: Session) -> dict:
                 raw_data=json.dumps(raw, ensure_ascii=False, default=str),
             )
             db.add(tx)
+            db.flush()
+            inserted_ids.append(tx.id)
             success_count += 1
         except Exception as e:
             errors.append(str(e))
@@ -117,7 +120,7 @@ def parse_wechat_csv(filepath: str, db: Session) -> dict:
         db,
         ACTION_IMPORT_CSV,
         f"导入微信账单：共 {len(df)} 条，成功 {success_count} 条，跳过重复 {skip_count} 条，过滤 {filtered_count} 条",
-        {"source": "wechat", "total": len(df), "success": success_count, "skipped": skip_count, "filtered": filtered_count},
+        {"source": "wechat", "total": len(df), "success": success_count, "skipped": skip_count, "filtered": filtered_count, "transaction_ids": inserted_ids},
     )
 
     return {

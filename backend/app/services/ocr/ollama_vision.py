@@ -1,5 +1,5 @@
 """
-使用本地 Ollama (qwen3-vl:4b) 识别账单图片，提取结构化交易记录
+OCR 账单识别：支持本地 Ollama 和远程 OpenAI 兼容接口
 """
 import json
 import base64
@@ -7,8 +7,6 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models.transaction import Transaction
-
-OLLAMA_MODEL = "qwen3-vl:4b"
 
 PROMPT = """你是一个专业的中文账单识别助手。请识别图片中的所有交易记录。
 
@@ -62,26 +60,109 @@ def _parse_date(date_str) -> datetime:
     raise ValueError(f"无法解析日期: {date_str}")
 
 
-async def extract_transactions_from_image(image_path: str, db: Session = None, skip_save: bool = False) -> dict:
+def _get_ocr_config(db: Session) -> dict:
+    from app.models.setting import AppSetting, DEFAULTS
+    rows = db.query(AppSetting).filter(
+        AppSetting.key.in_([
+            "ocr_mode", "ocr_local_model",
+            "ocr_remote_base_url", "ocr_remote_api_key", "ocr_remote_model"
+        ])
+    ).all()
+    cfg = {r.key: r.value for r in rows}
+    return {
+        "mode": cfg.get("ocr_mode") or DEFAULTS["ocr_mode"],
+        "local_model": cfg.get("ocr_local_model") or DEFAULTS["ocr_local_model"],
+        "remote_base_url": cfg.get("ocr_remote_base_url") or "",
+        "remote_api_key": cfg.get("ocr_remote_api_key") or "",
+        "remote_model": cfg.get("ocr_remote_model") or "",
+    }
+
+
+async def _call_local(image_path: str, local_model: str) -> str:
     import ollama
-
     image_b64 = _encode_image(image_path)
-
     response = ollama.chat(
-        model=OLLAMA_MODEL,
-        messages=[
-            {
-                "role": "user",
-                "content": PROMPT,
-                "images": [image_b64],
-            }
-        ],
+        model=local_model,
+        messages=[{"role": "user", "content": PROMPT, "images": [image_b64]}],
         options={"temperature": 0, "think": False},
     )
+    return response["message"]["content"].strip()
 
-    raw_text = response["message"]["content"].strip()
 
-    # 提取 JSON 部分（防止模型输出多余文字）
+async def _call_remote(image_path: str, base_url: str, api_key: str, model: str) -> str:
+    from openai import AsyncOpenAI
+    import mimetypes
+    client = AsyncOpenAI(api_key=api_key or "dummy", base_url=base_url)
+    image_b64 = _encode_image(image_path)
+    # 检测 MIME 类型
+    mime, _ = mimetypes.guess_type(image_path)
+    mime = mime or "image/jpeg"
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{image_b64}"}},
+                {"type": "text", "text": PROMPT},
+            ],
+        }],
+        temperature=0,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def _parse_raw(raw_text: str, transactions_raw: list) -> dict:
+    result_txs = []
+    for item in transactions_raw:
+        try:
+            date = _parse_date(item.get("date", ""))
+            raw_amount = item.get("amount")
+            if raw_amount is None:
+                continue
+            amount = float(raw_amount)
+            if amount <= 0:
+                continue
+            flow_type = item.get("flow_type", "expense")
+            if flow_type not in ("income", "expense"):
+                flow_type = "expense"
+            result_txs.append({
+                "date": date.isoformat(),
+                "amount": amount,
+                "flow_type": flow_type,
+                "category": item.get("category") or ("其他收入" if flow_type == "income" else "其他"),
+                "merchant": item.get("merchant") or "未知",
+                "description": item.get("description"),
+                "payment_method": item.get("payment_method"),
+                "tx_no": item.get("tx_no"),
+                "merchant_order_no": item.get("merchant_order_no"),
+                "remark": item.get("remark"),
+                "source": "image",
+            })
+        except Exception:
+            continue
+    return {"recognized": len(transactions_raw), "transactions": result_txs}
+
+
+async def extract_transactions_from_image(
+    image_path: str,
+    db: Session = None,
+    skip_save: bool = False,
+) -> dict:
+    # 读取配置
+    cfg = _get_ocr_config(db) if db else {
+        "mode": "local", "local_model": "qwen3-vl:4b",
+        "remote_base_url": "", "remote_api_key": "", "remote_model": "",
+    }
+
+    # 调用模型
+    if cfg["mode"] == "remote" and cfg["remote_base_url"] and cfg["remote_model"]:
+        raw_text = await _call_remote(
+            image_path, cfg["remote_base_url"], cfg["remote_api_key"], cfg["remote_model"]
+        )
+    else:
+        raw_text = await _call_local(image_path, cfg["local_model"])
+
+    # 解析 JSON
     start = raw_text.find("{")
     end = raw_text.rfind("}") + 1
     if start == -1 or end == 0:
@@ -94,39 +175,8 @@ async def extract_transactions_from_image(image_path: str, db: Session = None, s
 
     transactions = parsed.get("transactions", [])
 
-    # 如果只是识别不保存，直接返回
     if skip_save:
-        result_txs = []
-        for item in transactions:
-            try:
-                date = _parse_date(item.get("date", ""))
-                raw_amount = item.get("amount")
-                if raw_amount is None:
-                    continue
-                amount = float(raw_amount)
-                if amount <= 0:
-                    continue
-
-                flow_type = item.get("flow_type", "expense")
-                if flow_type not in ("income", "expense"):
-                    flow_type = "expense"
-
-                result_txs.append({
-                    "date": date.isoformat(),
-                    "amount": amount,
-                    "flow_type": flow_type,
-                    "category": item.get("category") or ("其他收入" if flow_type == "income" else "其他"),
-                    "merchant": item.get("merchant") or "未知",
-                    "description": item.get("description"),
-                    "payment_method": item.get("payment_method"),
-                    "tx_no": item.get("tx_no"),
-                    "merchant_order_no": item.get("merchant_order_no"),
-                    "remark": item.get("remark"),
-                    "source": "image",
-                })
-            except Exception:
-                continue
-        return {"recognized": len(transactions), "transactions": result_txs}
+        return _parse_raw(raw_text, transactions)
 
     # 保存到数据库
     success_count = 0
@@ -162,17 +212,11 @@ async def extract_transactions_from_image(image_path: str, db: Session = None, s
                 continue
 
             tx = Transaction(
-                date=date,
-                amount=amount,
-                flow_type=flow_type,
-                category=category,
-                merchant=merchant,
-                description=description,
+                date=date, amount=amount, flow_type=flow_type,
+                category=category, merchant=merchant, description=description,
                 payment_method=item.get("payment_method") or "未知",
-                tx_no=item.get("tx_no"),
-                merchant_order_no=item.get("merchant_order_no"),
-                remark=item.get("remark"),
-                source="image",
+                tx_no=item.get("tx_no"), merchant_order_no=item.get("merchant_order_no"),
+                remark=item.get("remark"), source="image",
                 raw_data=json.dumps(item, ensure_ascii=False),
             )
             db.add(tx)
@@ -181,10 +225,4 @@ async def extract_transactions_from_image(image_path: str, db: Session = None, s
             errors.append(str(e))
 
     db.commit()
-
-    return {
-        "recognized": len(transactions),
-        "saved": success_count,
-        "skipped": skip_count,
-        "errors": errors,
-    }
+    return {"recognized": len(transactions), "saved": success_count, "skipped": skip_count, "errors": errors}

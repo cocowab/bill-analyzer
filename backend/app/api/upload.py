@@ -129,6 +129,7 @@ async def save_ocr_results(
         transactions = data.get('transactions', [])
         saved = 0
         skipped = 0
+        inserted_ids = []
 
         for tx_data in transactions:
             try:
@@ -149,6 +150,8 @@ async def save_ocr_results(
                 from app.models.transaction import Transaction
                 tx = Transaction(**tx_obj.model_dump())
                 db.add(tx)
+                db.flush()
+                inserted_ids.append(tx.id)
                 saved += 1
             except Exception as e:
                 print(f"[OCR Save] Error: {e}")
@@ -170,7 +173,7 @@ async def save_ocr_results(
             db,
             ACTION_IMPORT_OCR,
             f"OCR 识别导入账单：成功保存 {saved} 条，跳过 {skipped} 条",
-            {"saved": saved, "skipped": skipped},
+            {"saved": saved, "skipped": skipped, "transaction_ids": inserted_ids},
         )
 
         return {"saved": saved, "skipped": skipped}

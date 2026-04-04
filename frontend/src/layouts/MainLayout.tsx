@@ -7,6 +7,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   AccountBookOutlined,
+  SettingOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useState } from 'react'
@@ -18,6 +19,7 @@ const menuItems = [
   { key: '/import', icon: <UploadOutlined />, label: '导入账单' },
   { key: '/stats', icon: <BarChartOutlined />, label: '统计分析' },
   { key: '/analysis', icon: <RobotOutlined />, label: 'AI 消费建议' },
+  { key: '/settings', icon: <SettingOutlined />, label: '设置' },
 ]
 
 export default function MainLayout() {

@@ -9,6 +9,7 @@ import Bills from '@/pages/Bills'
 import Stats from '@/pages/Stats'
 import Analysis from '@/pages/Analysis'
 import Import from '@/pages/Import'
+import Settings from '@/pages/Settings'
 
 dayjs.locale('zh-cn')
 
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="stats" element={<Stats />} />
             <Route path="analysis" element={<Analysis />} />
             <Route path="import" element={<Import />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
       </BrowserRouter>

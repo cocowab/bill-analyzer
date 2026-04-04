@@ -269,7 +269,6 @@ export default function Analysis() {
                 setThinking(false)
               }
               assistantContent += data.text
-              // 更新 assistant 消息
               const allMsgs = [...newMessages]
               const lastMsg = allMsgs[allMsgs.length - 1]
               if (lastMsg?.role === 'assistant') {
@@ -278,6 +277,30 @@ export default function Analysis() {
                 allMsgs.push({ role: 'assistant', content: assistantContent })
               }
               updateMessages(allMsgs)
+            } else if (data.type === 'full_content') {
+              // 后端一次性返回完整文本，前端逐字模拟打字机效果
+              if (!stepsFinalized && steps.length > 0) {
+                stepsFinalized = true
+                const stepsMsg: ChatMessage = { role: 'steps', content: '', steps: [...steps] }
+                newMessages.push(stepsMsg)
+                setLiveSteps([])
+                setThinking(false)
+              }
+              const fullText: string = data.text || ''
+              let charIdx = 0
+              const baseMessages = [...newMessages]
+              const timer = setInterval(() => {
+                charIdx++
+                const partial = fullText.slice(0, charIdx)
+                const msgs = [...baseMessages]
+                if (msgs[msgs.length - 1]?.role === 'assistant') {
+                  msgs[msgs.length - 1] = { role: 'assistant', content: partial }
+                } else {
+                  msgs.push({ role: 'assistant', content: partial })
+                }
+                updateMessages(msgs)
+                if (charIdx >= fullText.length) clearInterval(timer)
+              }, 16)
             }
           } catch {
             // 忽略
