@@ -1,5 +1,6 @@
-import { Card, Form, Input, AutoComplete, Radio, Button, message, Spin, Typography } from 'antd'
+import { Card, Form, Input, AutoComplete, Radio, Button, message, Typography } from 'antd'
 import { useState, useEffect } from 'react'
+import { getSettings, updateCache } from '@/utils/settingsCache'
 
 const { Text } = Typography
 
@@ -7,49 +8,43 @@ const CARD_STYLE = { borderRadius: 12, boxShadow: '0 1px 6px rgba(0,0,0,0.06)', 
 
 const COMMON_AI_MODELS = [
   { label: 'qwen3-max', value: 'qwen3-max' },
+  { label: 'qwen3-max-2026-01-23', value: 'qwen3-max-2026-01-23'},
   { label: 'qwen3-plus', value: 'qwen3-plus' },
   { label: 'qwen3-turbo', value: 'qwen3-turbo' },
-  { label: 'gpt-4o', value: 'gpt-4o' },
-  { label: 'gpt-4o-mini', value: 'gpt-4o-mini' },
-  { label: 'deepseek-chat', value: 'deepseek-chat' },
-  { label: 'glm-4', value: 'glm-4' },
 ]
 
 const COMMON_VISION_MODELS = [
   { label: 'qwen-vl-max', value: 'qwen-vl-max' },
   { label: 'qwen-vl-plus', value: 'qwen-vl-plus' },
-  { label: 'gpt-4o', value: 'gpt-4o' },
-  { label: 'gpt-4-vision-preview', value: 'gpt-4-vision-preview' },
-  { label: 'glm-4v', value: 'glm-4v' },
 ]
 
+function applyToForms(data: Record<string, string>, ocrForm: any, aiForm: any, setOcrMode: (m: 'local' | 'remote') => void) {
+  const mode = (data.ocr_mode as 'local' | 'remote') || 'local'
+  setOcrMode(mode)
+  ocrForm.setFieldsValue({
+    ocr_mode: mode,
+    ocr_local_model: data.ocr_local_model || 'qwen3-vl:4b',
+    ocr_remote_base_url: data.ocr_remote_base_url || '',
+    ocr_remote_api_key: data.ocr_remote_api_key || '',
+    ocr_remote_model: data.ocr_remote_model || '',
+  })
+  aiForm.setFieldsValue({
+    ai_base_url: data.ai_base_url || '',
+    ai_api_key: data.ai_api_key || '',
+    ai_model: data.ai_model || 'qwen3-max',
+  })
+}
+
 export default function Settings() {
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [ocrMode, setOcrMode] = useState<'local' | 'remote'>('local')
   const [ocrForm] = Form.useForm()
   const [aiForm] = Form.useForm()
 
   useEffect(() => {
-    fetch('/api/settings')
-      .then((r) => r.json())
-      .then((data) => {
-        setOcrMode(data.ocr_mode || 'local')
-        ocrForm.setFieldsValue({
-          ocr_mode: data.ocr_mode || 'local',
-          ocr_local_model: data.ocr_local_model || 'qwen3-vl:4b',
-          ocr_remote_base_url: data.ocr_remote_base_url || '',
-          ocr_remote_api_key: data.ocr_remote_api_key || '',
-          ocr_remote_model: data.ocr_remote_model || '',
-        })
-        aiForm.setFieldsValue({
-          ai_base_url: data.ai_base_url || '',
-          ai_api_key: data.ai_api_key || '',
-          ai_model: data.ai_model || 'qwen3-max',
-        })
-      })
-      .catch(() => message.error('加载配置失败'))
-      .finally(() => setLoading(false))
+    getSettings().then((data) => {
+      applyToForms(data, ocrForm, aiForm, setOcrMode)
+    })
   }, [])
 
   const handleSave = async () => {
@@ -70,6 +65,7 @@ export default function Settings() {
         body: JSON.stringify(payload),
       })
       if (res.ok) {
+        updateCache(payload)
         message.success('设置已保存')
       } else {
         const err = await res.json()
@@ -80,10 +76,6 @@ export default function Settings() {
     } finally {
       setSaving(false)
     }
-  }
-
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
   }
 
   return (

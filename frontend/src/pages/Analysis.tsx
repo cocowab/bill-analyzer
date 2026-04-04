@@ -28,6 +28,7 @@ const TOOL_NAME_MAP: Record<string, string> = {
   analyze_bills: '统计分析',
   query_bills: '查询明细',
   compare_periods: '对比分析',
+  query_actions: '查询操作记录',
 }
 
 function toolDesc(name: string, args: Record<string, unknown>): string {
@@ -38,7 +39,8 @@ function toolDesc(name: string, args: Record<string, unknown>): string {
     else if (args.flow_type === 'income') parts.push('收入')
     if (args.category) parts.push(`分类「${args.category}」`)
     if (args.start_date) parts.push(`${args.start_date} ~ ${args.end_date || '至今'}`)
-    const dimMap: Record<string, string> = { day: '日', month: '月', payment_method: '支付方式', category: '分类' }
+    const dimMap: Record<string, string> = { day: '日', month: '月', payment_method: '支付方式', category: '分类', source: '来源' }
+    if (args.source) parts.push(`来源「${args.source}」`)
     parts.push(`按${dimMap[args.group_by as string] || args.group_by}聚合`)
     return parts.join('，')
   }
@@ -46,12 +48,20 @@ function toolDesc(name: string, args: Record<string, unknown>): string {
     const parts = ['查询明细']
     if (args.keyword) parts.push(`关键词「${args.keyword}」`)
     if (args.merchant) parts.push(`商户「${args.merchant}」`)
+    if (args.source) parts.push(`来源「${args.source}」`)
     if (args.order_by === 'amount') parts.push('按金额排序')
     if (args.limit) parts.push(`前${args.limit}条`)
     return parts.join('，')
   }
   if (name === 'compare_periods') {
     return `对比 ${args.period_a_start}~${args.period_a_end} 与 ${args.period_b_start}~${args.period_b_end}`
+  }
+  if (name === 'query_actions') {
+    const parts = ['操作记录']
+    const typeMap: Record<string, string> = { create_bill: '手动录入', update_bill: '修改账单', delete_bill: '删除账单', import_csv: '导入CSV', import_ocr: 'OCR导入' }
+    if (args.action_type) parts.push(typeMap[args.action_type as string] || String(args.action_type))
+    if (args.start_date) parts.push(`${args.start_date} ~ ${args.end_date || '至今'}`)
+    return parts.join('，')
   }
   return JSON.stringify(args)
 }

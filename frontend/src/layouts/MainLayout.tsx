@@ -10,7 +10,8 @@ import {
   SettingOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { prefetchSettings } from '@/utils/settingsCache'
 
 const { Header, Sider, Content } = Layout
 
@@ -27,6 +28,8 @@ export default function MainLayout() {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const { token } = theme.useToken()
+
+  useEffect(() => { prefetchSettings() }, [])
 
   const currentLabel = menuItems.find((i) => i.key === location.pathname)?.label ?? '账单分析'
 

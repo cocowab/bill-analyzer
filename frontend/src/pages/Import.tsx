@@ -18,7 +18,7 @@ const FLOW_TYPE_OPTIONS = [
   { label: '收入', value: 'income' },
 ]
 
-const EXPENSE_CATEGORIES = ['餐饮美食', '购物消费', '交通出行', '娱乐休闲', '医疗健康', '住房租赁', '教育学习', '生活缴费', '转账红包', '其他']
+const EXPENSE_CATEGORIES = ['餐饮美食', '购物消费', '服饰装扮', '数码家电', '运动户外', '美容美发', '交通出行', '酒店旅游', '娱乐休闲', '医疗健康', '住房租赁', '教育学习', '生活缴费', '转账红包', '其他']
 const INCOME_CATEGORIES = ['工资收入', '红包收入', '理财收益', '退款收入', '收款转账', '其他收入']
 
 interface Transaction {

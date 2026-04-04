@@ -89,6 +89,7 @@ def analyze_bills(
     flow_type: str | None = None,
     category: str | None = None,
     merchant: str | None = None,
+    source: str | None = None,
 ) -> dict:
     """统计聚合账单数据，按指定维度分组返回总额、笔数、占比"""
 
@@ -103,6 +104,8 @@ def analyze_bills(
         filters.append(Transaction.category.like(f"%{category}%"))
     if merchant:
         filters.append(Transaction.merchant.like(f"%{merchant}%"))
+    if source:
+        filters.append(Transaction.source == source)
 
     base = db.query(Transaction).filter(*filters) if filters else db.query(Transaction)
 
@@ -201,6 +204,27 @@ def analyze_bills(
                 "percent": round(amt / total_amount * 100, 1) if total_amount else 0,
             })
 
+    elif group_by == "source":
+        SOURCE_LABELS = {"wechat": "微信", "alipay": "支付宝", "image": "OCR识别", "manual": "手动录入"}
+        rows = (
+            base.with_entities(
+                Transaction.source,
+                func.sum(Transaction.amount).label("total"),
+                func.count(Transaction.id).label("cnt"),
+            )
+            .group_by(Transaction.source)
+            .order_by(func.sum(Transaction.amount).desc())
+            .all()
+        )
+        for r in rows:
+            amt = float(r.total)
+            groups.append({
+                "name": SOURCE_LABELS.get(r.source, r.source or "未知"),
+                "amount": round(amt, 2),
+                "count": r.cnt,
+                "percent": round(amt / total_amount * 100, 1) if total_amount else 0,
+            })
+
     return {
         "query_range": query_range,
         "flow_type": flow_type or "all",
@@ -222,6 +246,7 @@ def query_bills(
     category: str | None = None,
     merchant: str | None = None,
     keyword: str | None = None,
+    source: str | None = None,
     order_by: str = "date",
     order_dir: str = "desc",
     limit: int = 10,
@@ -247,6 +272,8 @@ def query_bills(
                 Transaction.remark.like(f"%{keyword}%"),
             )
         )
+    if source:
+        filters.append(Transaction.source == source)
 
     base = db.query(Transaction).filter(*filters) if filters else db.query(Transaction)
 
@@ -418,7 +445,8 @@ TOOL_DEFINITIONS = [
                     "flow_type": {"type": "string", "enum": ["income", "expense"], "description": "收支类型筛选"},
                     "category": {"type": "string", "description": "分类名称，支持模糊匹配"},
                     "merchant": {"type": "string", "description": "商户名称，模糊匹配"},
-                    "group_by": {"type": "string", "enum": ["category", "day", "month", "payment_method"], "description": "聚合维度"},
+                    "source": {"type": "string", "enum": ["wechat", "alipay", "image", "manual"], "description": "账单来源筛选：wechat 微信、alipay 支付宝、image OCR识别、manual 手动录入"},
+                    "group_by": {"type": "string", "enum": ["category", "day", "month", "payment_method", "source"], "description": "聚合维度"},
                 },
                 "required": ["group_by"],
             },
@@ -438,6 +466,7 @@ TOOL_DEFINITIONS = [
                     "category": {"type": "string", "description": "分类名称，模糊匹配"},
                     "merchant": {"type": "string", "description": "商户名称，模糊匹配"},
                     "keyword": {"type": "string", "description": "关键词搜索，同时匹配商户名、商品描述、备注"},
+                    "source": {"type": "string", "enum": ["wechat", "alipay", "image", "manual"], "description": "账单来源筛选：wechat 微信、alipay 支付宝、image OCR识别、manual 手动录入"},
                     "order_by": {"type": "string", "enum": ["date", "amount"], "description": "排序字段，默认 date"},
                     "order_dir": {"type": "string", "enum": ["asc", "desc"], "description": "排序方向，默认 desc"},
                     "limit": {"type": "integer", "description": "返回条数，默认10，最大50"},
@@ -466,7 +495,80 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_actions",
+            "description": "查询用户的操作记录，按时间返回操作列表。用于回答"我最近做了什么操作"、"上次导入是什么时候"、"今天改过哪些账单"等审计类问题。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "start_date": {"type": "string", "description": "开始日期，格式 YYYY-MM-DD"},
+                    "end_date": {"type": "string", "description": "结束日期，格式 YYYY-MM-DD"},
+                    "action_type": {
+                        "type": "string",
+                        "enum": ["create_bill", "update_bill", "delete_bill", "import_csv", "import_ocr"],
+                        "description": "操作类型筛选：create_bill 手动录入、update_bill 修改账单、delete_bill 删除账单、import_csv 导入CSV、import_ocr OCR识别导入"
+                    },
+                    "limit": {"type": "integer", "description": "返回条数，默认20，最大100"},
+                },
+                "required": [],
+            },
+        },
+    },
 ]
+
+
+# ---------------------------------------------------------------------------
+# 工具 5: query_actions
+# ---------------------------------------------------------------------------
+
+def query_actions(
+    db: Session,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    action_type: str | None = None,
+    limit: int = 20,
+) -> dict:
+    """查询用户操作记录，按时间返回操作列表"""
+    from app.models.user_action import UserAction
+
+    filters = []
+    if start_date:
+        filters.append(UserAction.created_at >= datetime.strptime(start_date, "%Y-%m-%d"))
+    if end_date:
+        filters.append(UserAction.created_at <= datetime.strptime(end_date + " 23:59:59", "%Y-%m-%d %H:%M:%S"))
+    if action_type:
+        filters.append(UserAction.action_type == action_type)
+
+    base = db.query(UserAction).filter(*filters) if filters else db.query(UserAction)
+    total = base.with_entities(func.count(UserAction.id)).scalar() or 0
+    limit = min(max(limit, 1), 100)
+    rows = base.order_by(UserAction.created_at.desc()).limit(limit).all()
+
+    ACTION_LABELS = {
+        "create_bill": "手动录入账单",
+        "update_bill": "修改账单",
+        "delete_bill": "删除账单",
+        "import_csv": "导入CSV账单",
+        "import_ocr": "OCR识别导入",
+    }
+
+    items = []
+    for r in rows:
+        items.append({
+            "time": r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else "",
+            "action_type": r.action_type,
+            "action_label": ACTION_LABELS.get(r.action_type, r.action_type),
+            "description": r.description or "",
+            "details": r.details,
+        })
+
+    return {
+        "total_matched": total,
+        "returned": len(items),
+        "items": items,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -483,5 +585,7 @@ def execute_tool(db: Session, tool_name: str, arguments: dict) -> dict:
         return query_bills(db, **arguments)
     elif tool_name == "compare_periods":
         return compare_periods(db, **arguments)
+    elif tool_name == "query_actions":
+        return query_actions(db, **arguments)
     else:
         return {"error": f"未知工具: {tool_name}"}

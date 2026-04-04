@@ -97,7 +97,7 @@ async def upload_image(
 
     try:
         from app.services.ocr.ollama_vision import extract_transactions_from_image
-        result = await extract_transactions_from_image(tmp_path, skip_save=True)
+        result = await extract_transactions_from_image(tmp_path, db=db, skip_save=True)
     finally:
         os.remove(tmp_path)
 
