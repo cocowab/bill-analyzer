@@ -70,12 +70,66 @@ def list_bills(
     return {"total": total, "items": items}
 
 
+@router.post("", response_model=dict)
+def create_bill(data: dict, db: Session = Depends(get_db)):
+    """手动创建单条账单"""
+    from app.schemas.transaction import TransactionCreate
+    from datetime import datetime
+    from app.services.user_action_logger import log_action, ACTION_CREATE_BILL
+
+    try:
+        # 转换并验证数据
+        tx_data = TransactionCreate(
+            date=datetime.fromisoformat(data['date']) if isinstance(data['date'], str) else data['date'],
+            amount=float(data['amount']),
+            flow_type=data['flow_type'],
+            category=data.get('category'),
+            merchant=data.get('merchant'),
+            description=data.get('description'),
+            payment_method=data.get('payment_method'),
+            tx_no=data.get('tx_no'),
+            merchant_order_no=data.get('merchant_order_no'),
+            remark=data.get('remark'),
+            source=data.get('source', 'manual'),
+        )
+
+        tx = Transaction(**tx_data.model_dump())
+        db.add(tx)
+        db.commit()
+        db.refresh(tx)
+
+        # 记录操作
+        log_action(
+            db,
+            ACTION_CREATE_BILL,
+            f"手动添加账单：{data.get('merchant', '未知')} ¥{data['amount']}",
+            {"transaction_id": tx.id, "amount": float(data['amount']), "merchant": data.get('merchant')},
+        )
+
+        return {"id": tx.id, "ok": True}
+    except Exception as e:
+        db.rollback()
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.delete("/{transaction_id}")
 def delete_bill(transaction_id: int, db: Session = Depends(get_db)):
+    from app.services.user_action_logger import log_action, ACTION_DELETE_BILL
+
     tx = db.query(Transaction).filter(Transaction.id == transaction_id).first()
     if not tx:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Transaction not found")
+
+    # 记录操作（删除前）
+    log_action(
+        db,
+        ACTION_DELETE_BILL,
+        f"删除账单：{tx.merchant} ¥{float(tx.amount)}",
+        {"transaction_id": tx.id, "amount": float(tx.amount), "merchant": tx.merchant},
+    )
+
     db.delete(tx)
     db.commit()
     return {"ok": True}

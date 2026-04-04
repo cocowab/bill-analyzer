@@ -62,7 +62,7 @@ def _parse_date(date_str) -> datetime:
     raise ValueError(f"无法解析日期: {date_str}")
 
 
-async def extract_transactions_from_image(image_path: str, db: Session) -> dict:
+async def extract_transactions_from_image(image_path: str, db: Session = None, skip_save: bool = False) -> dict:
     import ollama
 
     image_b64 = _encode_image(image_path)
@@ -93,6 +93,42 @@ async def extract_transactions_from_image(image_path: str, db: Session) -> dict:
         return {"recognized": 0, "saved": 0, "error": f"JSON解析失败: {e}", "raw": raw_text}
 
     transactions = parsed.get("transactions", [])
+
+    # 如果只是识别不保存，直接返回
+    if skip_save:
+        result_txs = []
+        for item in transactions:
+            try:
+                date = _parse_date(item.get("date", ""))
+                raw_amount = item.get("amount")
+                if raw_amount is None:
+                    continue
+                amount = float(raw_amount)
+                if amount <= 0:
+                    continue
+
+                flow_type = item.get("flow_type", "expense")
+                if flow_type not in ("income", "expense"):
+                    flow_type = "expense"
+
+                result_txs.append({
+                    "date": date.isoformat(),
+                    "amount": amount,
+                    "flow_type": flow_type,
+                    "category": item.get("category") or ("其他收入" if flow_type == "income" else "其他"),
+                    "merchant": item.get("merchant") or "未知",
+                    "description": item.get("description"),
+                    "payment_method": item.get("payment_method"),
+                    "tx_no": item.get("tx_no"),
+                    "merchant_order_no": item.get("merchant_order_no"),
+                    "remark": item.get("remark"),
+                    "source": "image",
+                })
+            except Exception:
+                continue
+        return {"recognized": len(transactions), "transactions": result_txs}
+
+    # 保存到数据库
     success_count = 0
     skip_count = 0
     errors = []

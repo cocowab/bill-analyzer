@@ -45,10 +45,20 @@ export const uploadCSV = (file: File) => {
   })
 }
 
-export const uploadImage = (file: File) => {
+export const uploadImage = (file: File, signal?: AbortSignal) => {
   const form = new FormData()
   form.append('file', file)
   return request.post('/upload/image', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    signal,
+    timeout: 120000,
   })
+}
+
+export const createBill = (data: Record<string, any>) => {
+  return request.post('/bills', data)
+}
+
+export const saveOcrResults = (data: { transactions: Record<string, any>[] }) => {
+  return request.post('/upload/image/save', data)
 }

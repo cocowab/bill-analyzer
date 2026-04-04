@@ -4,7 +4,7 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.database import engine
-from app.models import Transaction, ImportRecord  # noqa: F401 触发表创建
+from app.models import Transaction, UserAction, ImportFile, OcrImage  # noqa: F401 触发表创建
 from app.core.database import Base
 from app.api import bills, stats, upload, analysis, agent_tools
 

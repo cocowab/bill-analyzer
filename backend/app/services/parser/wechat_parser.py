@@ -11,7 +11,6 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models.transaction import Transaction
-from app.models.import_record import ImportRecord
 from app.services.category.classifier import classify
 
 
@@ -112,17 +111,14 @@ def parse_wechat_csv(filepath: str, db: Session) -> dict:
 
     db.commit()
 
-    record = ImportRecord(
-        filename=filepath.split("/")[-1].split("\\")[-1],
-        source="wechat",
-        record_count=len(df),
-        success_count=success_count,
-        skip_count=skip_count,
-        status="success" if not errors else "partial",
-        error_msg="; ".join(errors[:3]) if errors else None,
+    # 记录操作
+    from app.services.user_action_logger import log_action, ACTION_IMPORT_CSV
+    log_action(
+        db,
+        ACTION_IMPORT_CSV,
+        f"导入微信账单：共 {len(df)} 条，成功 {success_count} 条，跳过重复 {skip_count} 条，过滤 {filtered_count} 条",
+        {"source": "wechat", "total": len(df), "success": success_count, "skipped": skip_count, "filtered": filtered_count},
     )
-    db.add(record)
-    db.commit()
 
     return {
         "total": len(df),
