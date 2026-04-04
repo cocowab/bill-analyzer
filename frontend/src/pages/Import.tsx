@@ -35,9 +35,12 @@ export default function Import() {
     setImgLoading(true)
     try {
       const res: any = await uploadImage(file)
-      message.success(`识别完成：共识别 ${res.recognized} 条，保存 ${res.saved} 条`)
-    } catch {
-      message.error('识别失败，请确认已配置 ANTHROPIC_API_KEY')
+      const parts = [`共识别 ${res.recognized} 条`, `保存 ${res.saved} 条`]
+      if (res.skipped) parts.push(`跳过重复 ${res.skipped} 条`)
+      message.success(`识别完成：${parts.join('，')}`)
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || '未知错误'
+      message.error(`识别失败：${detail}`)
     } finally {
       setImgLoading(false)
     }

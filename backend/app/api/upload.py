@@ -77,7 +77,7 @@ async def upload_image(
     with open(save_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    from app.services.ocr.claude_vision import extract_transactions_from_image
+    from app.services.ocr.ollama_vision import extract_transactions_from_image
     result = await extract_transactions_from_image(save_path, db)
     os.remove(save_path)
     return result

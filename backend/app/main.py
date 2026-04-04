@@ -6,7 +6,7 @@ from app.core.config import settings
 from app.core.database import engine
 from app.models import Transaction, ImportRecord  # noqa: F401 触发表创建
 from app.core.database import Base
-from app.api import bills, stats, upload, analysis
+from app.api import bills, stats, upload, analysis, agent_tools
 
 # 启动时自动建表
 Base.metadata.create_all(bind=engine)
@@ -37,6 +37,7 @@ app.include_router(bills.router)
 app.include_router(stats.router)
 app.include_router(upload.router)
 app.include_router(analysis.router)
+app.include_router(agent_tools.router)
 
 
 @app.get("/")
