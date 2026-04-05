@@ -1,14 +1,19 @@
-import { Table, Tag, Select, DatePicker, Row, Col, Card, Button, Popconfirm, message, Space, Typography } from 'antd'
-import { FilterOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Table, Tag, Select, DatePicker, Row, Col, Card, Button, Popconfirm, message, Space, Typography, Modal, Form, Input, InputNumber } from 'antd'
+import { FilterOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons'
 import { useEffect, useState } from 'react'
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
 dayjs.extend(isoWeek)
-import { getBills, deleteBill } from '@/api/bills'
+import { getBills, deleteBill, updateBill } from '@/api/bills'
 import type { Transaction, PeriodType } from '@/types'
 
 const { Option } = Select
 const { Text } = Typography
+const { TextArea } = Input
+
+const EXPENSE_CATEGORIES = ['餐饮美食', '购物消费', '服饰装扮', '数码家电', '运动户外', '美容美发', '交通出行', '酒店旅游', '娱乐休闲', '医疗健康', '住房租赁', '教育学习', '生活缴费', '转账红包', '其他']
+const INCOME_CATEGORIES = ['工资收入', '红包收入', '理财收益', '退款收入', '收款转账', '其他收入']
+const FLOW_TYPE_OPTIONS = [{ label: '支出', value: 'expense' }, { label: '收入', value: 'income' }]
 
 const FLOW_COLOR = { income: 'success', expense: 'error' } as const
 const FLOW_LABEL = { income: '收入', expense: '支出' } as const
@@ -23,6 +28,32 @@ export default function Bills() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [editRecord, setEditRecord] = useState<Transaction | null>(null)
+  const [editFlowType, setEditFlowType] = useState<string>('expense')
+  const [editForm] = Form.useForm()
+
+  const handleEdit = (record: Transaction) => {
+    setEditRecord(record)
+    setEditFlowType(record.flow_type)
+    editForm.setFieldsValue({
+      ...record,
+      date: dayjs(record.date),
+    })
+  }
+
+  const handleEditSave = async () => {
+    try {
+      const values = await editForm.validateFields()
+      await updateBill(editRecord!.id, {
+        ...values,
+        date: values.date.toISOString(),
+        amount: Number(values.amount),
+      })
+      message.success('已更新')
+      setEditRecord(null)
+      fetchData()
+    } catch {}
+  }
 
   const fetchData = () => {
     setLoading(true)
@@ -98,11 +129,14 @@ export default function Bills() {
     },
     {
       title: '操作',
-      width: 60,
+      width: 90,
       render: (_: unknown, row: Transaction) => (
-        <Popconfirm title="确认删除该条记录？" onConfirm={() => handleDelete(row.id)} okText="删除" okButtonProps={{ danger: true }}>
-          <Button type="text" danger icon={<DeleteOutlined />} size="small" />
-        </Popconfirm>
+        <Space size={0}>
+          <Button type="text" icon={<EditOutlined />} size="small" onClick={() => handleEdit(row)} />
+          <Popconfirm title="确认删除该条记录？" onConfirm={() => handleDelete(row.id)} okText="删除" okButtonProps={{ danger: true }}>
+            <Button type="text" danger icon={<DeleteOutlined />} size="small" />
+          </Popconfirm>
+        </Space>
       ),
     },
   ]
@@ -179,6 +213,58 @@ export default function Bills() {
           rowClassName={(_, index) => index % 2 === 1 ? 'table-row-stripe' : ''}
         />
       </Card>
+      <Modal
+        title="编辑账单"
+        open={!!editRecord}
+        onOk={handleEditSave}
+        onCancel={() => setEditRecord(null)}
+        width={800}
+        okText="保存"
+      >
+        <Form
+          form={editForm}
+          layout="vertical"
+          onValuesChange={(changed) => {
+            if ('flow_type' in changed) {
+              setEditFlowType(changed.flow_type)
+              editForm.setFieldValue('category', undefined)
+            }
+          }}
+        >
+          <Row gutter={[24, 0]}>
+            <Col span={12}>
+              <Form.Item label="类型" name="flow_type" rules={[{ required: true, message: '请选择类型' }]}>
+                <Select options={FLOW_TYPE_OPTIONS} />
+              </Form.Item>
+              <Form.Item label="日期" name="date" rules={[{ required: true, message: '请选择日期' }]}>
+                <DatePicker showTime style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item label="商户" name="merchant">
+                <Input placeholder="可选" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="金额" name="amount" rules={[{ required: true, message: '请输入金额' }]}>
+                <InputNumber precision={2} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item label="分类" name="category" rules={[{ required: true, message: '请选择分类' }]}>
+                <Select
+                  options={(editFlowType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((c) => ({ label: c, value: c }))}
+                  placeholder="请选择"
+                />
+              </Form.Item>
+              {editFlowType === 'expense' && (
+                <Form.Item label="支付方式" name="payment_method">
+                  <Input placeholder="可选" />
+                </Form.Item>
+              )}
+            </Col>
+          </Row>
+          <Form.Item label="描述" name="description">
+            <TextArea rows={3} placeholder="可选" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

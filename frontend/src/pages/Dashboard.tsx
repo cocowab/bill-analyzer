@@ -62,7 +62,7 @@ export default function Dashboard() {
             <ul>
               <li><strong>账单明细</strong>：按年/月/周查看所有交易记录</li>
               <li><strong>统计分析</strong>：折线图趋势 + 消费分类饼图</li>
-              <li><strong>AI 消费建议</strong>：基于你的数据生成个性化分析报告</li>
+              <li><strong>AI 消费分析</strong>：基于你的数据生成个性化分析报告</li>
               <li><strong>导入账单</strong>：上传微信/支付宝 CSV 或账单图片</li>
             </ul>
           </Card>

@@ -148,6 +148,17 @@ async def save_ocr_results(
                 )
 
                 from app.models.transaction import Transaction
+                from datetime import datetime as dt
+                exists = db.query(Transaction).filter(
+                    Transaction.date == tx_obj.date,
+                    Transaction.amount == tx_obj.amount,
+                    Transaction.merchant == tx_obj.merchant,
+                    Transaction.source == "image",
+                ).first()
+                if exists:
+                    skipped += 1
+                    continue
+
                 tx = Transaction(**tx_obj.model_dump())
                 db.add(tx)
                 db.flush()

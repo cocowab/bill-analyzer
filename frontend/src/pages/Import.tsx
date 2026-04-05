@@ -225,7 +225,10 @@ export default function Import() {
         return (
           <Select
             value={val}
-            onChange={(v) => updateOcrEditing({ ...ocrEditing, [idx]: { ...ocrData[idx], ...ocrEditing[idx], flow_type: v } })}
+            onChange={(v) => {
+              const defaultCategory = v === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]
+              updateOcrEditing({ ...ocrEditing, [idx]: { ...ocrData[idx], ...ocrEditing[idx], flow_type: v, category: defaultCategory } })
+            }}
             options={FLOW_TYPE_OPTIONS}
             size="small"
           />
@@ -246,6 +249,7 @@ export default function Import() {
             onChange={(v) => updateOcrEditing({ ...ocrEditing, [idx]: { ...ocrData[idx], ...ocrEditing[idx], category: v } })}
             options={options.map((c) => ({ label: c, value: c }))}
             size="small"
+            style={{ minWidth: 88 }}
           />
         )
       },
@@ -253,14 +257,30 @@ export default function Import() {
     {
       title: '商户',
       dataIndex: 'merchant',
-      width: 150,
+      width: 130,
       render: (text: string, _: any, idx: number) => {
-        const val = ocrEditing[idx]?.merchant || text
+        const val = ocrEditing[idx]?.merchant ?? text
         return (
           <Input
             value={val}
             onChange={(e) => updateOcrEditing({ ...ocrEditing, [idx]: { ...ocrData[idx], ...ocrEditing[idx], merchant: e.target.value } })}
             size="small"
+          />
+        )
+      },
+    },
+    {
+      title: '商品描述',
+      dataIndex: 'description',
+      width: 160,
+      render: (text: string, _: any, idx: number) => {
+        const val = ocrEditing[idx]?.description ?? text
+        return (
+          <Input
+            value={val || ''}
+            onChange={(e) => updateOcrEditing({ ...ocrEditing, [idx]: { ...ocrData[idx], ...ocrEditing[idx], description: e.target.value } })}
+            size="small"
+            placeholder="无"
           />
         )
       },
@@ -439,20 +459,19 @@ export default function Import() {
               <Form.Item label="日期" name="date" rules={[{ required: true, message: '请选择日期' }]}>
                 <DatePicker showTime style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item label="分类" name="category">
-                <Select
-                  options={(manualFlowType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((c) => ({ label: c, value: c }))}
-                  placeholder="可选"
-                  allowClear
-                />
+              <Form.Item label="商户" name="merchant">
+                <Input placeholder="可选" />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item label="金额" name="amount" rules={[{ required: true, message: '请输入金额' }]}>
                 <InputNumber precision={2} style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item label="商户" name="merchant">
-                <Input placeholder="可选" />
+              <Form.Item label="分类" name="category" rules={[{ required: true, message: '请选择分类' }]}>
+                <Select
+                  options={(manualFlowType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((c) => ({ label: c, value: c }))}
+                  placeholder="请选择"
+                />
               </Form.Item>
               {manualFlowType === 'expense' && (
                 <Form.Item label="支付方式" name="payment_method">

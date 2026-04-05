@@ -59,6 +59,10 @@ export const createBill = (data: Record<string, any>) => {
   return request.post('/bills', data)
 }
 
+export const updateBill = (id: number, data: Record<string, any>) => {
+  return request.put(`/bills/${id}`, data)
+}
+
 export const saveOcrResults = (data: { transactions: Record<string, any>[] }) => {
   return request.post('/upload/image/save', data)
 }

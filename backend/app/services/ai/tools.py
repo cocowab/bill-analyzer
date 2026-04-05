@@ -499,7 +499,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "query_actions",
-            "description": "查询用户的操作记录，按时间返回操作列表。用于回答"我最近做了什么操作"、"上次导入是什么时候"、"今天改过哪些账单"等审计类问题。",
+            "description": "查询用户的操作记录，按时间返回操作列表。用于回答用户最近做了什么操作、上次导入是什么时候、今天改过哪些账单等审计类问题。",
             "parameters": {
                 "type": "object",
                 "properties": {

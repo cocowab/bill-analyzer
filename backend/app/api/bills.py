@@ -113,6 +113,36 @@ def create_bill(data: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.put("/{transaction_id}")
+def update_bill(transaction_id: int, data: dict, db: Session = Depends(get_db)):
+    from app.services.user_action_logger import log_action, ACTION_UPDATE_BILL
+
+    tx = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if not tx:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    fields = ["date", "amount", "flow_type", "category", "merchant", "description", "payment_method", "remark"]
+    for field in fields:
+        if field in data:
+            val = data[field]
+            if field == "date" and isinstance(val, str):
+                from datetime import datetime
+                val = datetime.fromisoformat(val)
+            if field == "amount":
+                val = float(val)
+            setattr(tx, field, val)
+
+    db.commit()
+    log_action(
+        db,
+        ACTION_UPDATE_BILL,
+        f"编辑账单：{tx.merchant} ¥{float(tx.amount)}",
+        {"transaction_id": tx.id, "amount": float(tx.amount), "merchant": tx.merchant},
+    )
+    return {"ok": True}
+
+
 @router.delete("/{transaction_id}")
 def delete_bill(transaction_id: int, db: Session = Depends(get_db)):
     from app.services.user_action_logger import log_action, ACTION_DELETE_BILL
