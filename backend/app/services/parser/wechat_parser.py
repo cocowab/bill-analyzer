@@ -72,8 +72,12 @@ def parse_wechat_csv(filepath: str, db: Session) -> dict:
                 filtered_count += 1
                 continue
 
-            amount_str = re.sub(r"[^\d.]", "", str(raw.get("金额(元)", "0")))
-            amount = float(amount_str) if amount_str else 0.0
+            amount_str = re.sub(r"[^\d.]", "", str(raw.get("金额(元)", "")).strip())
+            if not amount_str:
+                raise ValueError("金额为空")
+            amount = float(amount_str)
+            if amount <= 0:
+                raise ValueError(f"无效金额: {amount_str}")
 
             tx_no = str(raw.get("交易单号", "")).strip()
             date_str = str(raw.get("交易时间", "")).strip()
