@@ -1,15 +1,27 @@
 import { Card, Input, Button, Space, Typography } from 'antd'
-import {
-  RobotOutlined,
-  SendOutlined,
-  UserOutlined,
-  DeleteOutlined,
-  CheckCircleFilled,
-  LoadingOutlined,
-} from '@ant-design/icons'
+import * as Icons from '@ant-design/icons'
+const {
+  RobotOutlined, SendOutlined, DeleteOutlined, CheckCircleFilled, LoadingOutlined,
+} = Icons
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { getAppearance, subscribeAppearance, USER_AVATARS, AI_AVATARS, type AppearanceConfig } from '@/utils/appearanceStore'
 
 const { Text } = Typography
+
+function AvatarIcon({ conf, avatarList, size = 32 }: { conf: AppearanceConfig; avatarList: typeof USER_AVATARS; size?: number }) {
+  const item = avatarList.find((a) => a.value === (avatarList === USER_AVATARS ? conf.userAvatar : conf.aiAvatar)) || avatarList[0]
+  const IconComp = (Icons as any)[item.icon]
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: size / 2,
+      background: item.bg,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0,
+    }}>
+      <IconComp style={{ fontSize: size * 0.5, color: item.color }} />
+    </div>
+  )
+}
 
 interface ToolStep {
   name: string
@@ -124,7 +136,7 @@ function renderMarkdown(text: string) {
 }
 
 // 步骤列表渲染组件
-function StepsBlock({ steps, thinking, isLive }: { steps: ToolStep[]; thinking?: boolean; isLive?: boolean }) {
+function StepsBlock({ steps, thinking, isLive, appearance }: { steps: ToolStep[]; thinking?: boolean; isLive?: boolean; appearance?: AppearanceConfig }) {
   // 判断是否所有步骤已完成
   const allDone = steps.every((s) => s.status === 'done')
   // 是否正在等待（有工具还在 loading）
@@ -132,13 +144,11 @@ function StepsBlock({ steps, thinking, isLive }: { steps: ToolStep[]; thinking?:
 
   return (
     <div style={{ display: 'flex', marginBottom: 12 }}>
-      <div style={{
-        width: 32, height: 32, borderRadius: 16,
-        background: 'linear-gradient(135deg, #1677ff, #4096ff)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginRight: 10, flexShrink: 0,
-      }}>
-        <RobotOutlined style={{ color: '#fff', fontSize: 16 }} />
+      <div style={{ marginRight: 10 }}>
+        {appearance
+          ? <AvatarIcon conf={appearance} avatarList={AI_AVATARS} />
+          : <div style={{ width: 32, height: 32, borderRadius: 16, background: 'linear-gradient(135deg,#1677ff,#4096ff)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><RobotOutlined style={{ color: '#fff', fontSize: 16 }} /></div>
+        }
       </div>
       <div style={{
         padding: '12px 16px',
@@ -178,6 +188,9 @@ export default function Analysis() {
   const [messages, setMessages] = useState<ChatMessage[]>(cachedMessages)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [appearance, setAppearanceState] = useState<AppearanceConfig>(getAppearance())
+
+  useEffect(() => subscribeAppearance(setAppearanceState), [])
   const [liveSteps, setLiveSteps] = useState<ToolStep[]>([])
   const [thinking, setThinking] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -393,7 +406,7 @@ export default function Analysis() {
         {/* 已有消息 */}
         {messages.map((msg, idx) => {
           if (msg.role === 'steps') {
-            return <StepsBlock key={idx} steps={msg.steps || []} isLive={false} />
+            return <StepsBlock key={idx} steps={msg.steps || []} isLive={false} appearance={appearance} />
           }
           if (msg.role === 'user') {
             return (
@@ -406,12 +419,8 @@ export default function Analysis() {
                 }}>
                   {msg.content}
                 </div>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 16, background: '#e6f4ff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  marginLeft: 10, flexShrink: 0,
-                }}>
-                  <UserOutlined style={{ color: '#1677ff', fontSize: 16 }} />
+                <div style={{ marginLeft: 10 }}>
+                  <AvatarIcon conf={appearance} avatarList={USER_AVATARS} />
                 </div>
               </div>
             )
@@ -419,13 +428,8 @@ export default function Analysis() {
           // assistant
           return (
             <div key={idx} style={{ display: 'flex', marginBottom: 16 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 16,
-                background: 'linear-gradient(135deg, #1677ff, #4096ff)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                marginRight: 10, flexShrink: 0,
-              }}>
-                <RobotOutlined style={{ color: '#fff', fontSize: 16 }} />
+              <div style={{ marginRight: 10 }}>
+                <AvatarIcon conf={appearance} avatarList={AI_AVATARS} />
               </div>
               <div style={{
                 maxWidth: '80%', padding: '12px 16px',
@@ -447,19 +451,14 @@ export default function Analysis() {
 
         {/* 实时步骤（还未固化到消息中） */}
         {liveSteps.length > 0 && (
-          <StepsBlock steps={liveSteps} thinking={thinking} isLive />
+          <StepsBlock steps={liveSteps} thinking={thinking} isLive appearance={appearance} />
         )}
 
         {/* 初始等待（没有任何步骤时） */}
         {loading && liveSteps.length === 0 && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
           <div style={{ display: 'flex', marginBottom: 16 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 16,
-              background: 'linear-gradient(135deg, #1677ff, #4096ff)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginRight: 10, flexShrink: 0,
-            }}>
-              <RobotOutlined style={{ color: '#fff', fontSize: 16 }} />
+            <div style={{ marginRight: 10 }}>
+              <AvatarIcon conf={appearance} avatarList={AI_AVATARS} />
             </div>
             <div style={{
               padding: '12px 20px', borderRadius: '16px 16px 16px 4px',

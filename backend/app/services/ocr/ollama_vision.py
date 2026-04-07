@@ -131,7 +131,6 @@ async def _call_remote(image_path: str, base_url: str, api_key: str, model: str)
     # 检测 MIME 类型
     mime, _ = mimetypes.guess_type(image_path)
     mime = mime or "image/jpeg"
-    print(f"[OCR Remote] model={model} base_url={base_url} mime={mime} image_b64_len={len(image_b64)}")
     try:
         response = await client.chat.completions.create(
             model=model,
@@ -254,8 +253,6 @@ async def extract_transactions_from_image(
         "mode": "local", "local_model": "qwen3-vl:4b",
         "remote_base_url": "", "remote_api_key": "", "remote_model": "",
     }
-
-    print(f"[OCR] mode={cfg['mode']} model={cfg['local_model'] if cfg['mode'] == 'local' else cfg['remote_model']} url={cfg.get('remote_base_url', '')}")
 
     # 调用模型
     if cfg["mode"] == "remote" and cfg["remote_base_url"] and cfg["remote_model"]:

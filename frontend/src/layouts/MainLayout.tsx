@@ -11,7 +11,22 @@ import {
 } from '@ant-design/icons'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { prefetchSettings } from '@/utils/settingsCache'
+import { prefetchSettings, getSettings } from '@/utils/settingsCache'
+import { applyFromSettings, getAppearance, subscribeAppearance } from '@/utils/appearanceStore'
+
+function sidebarBg(hex: string): string {
+  try {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    const t = (c: number, f: number, add: number) => Math.min(255, Math.round(c * f + add))
+    const top = `rgb(${t(r,.18,12)},${t(g,.18,10)},${t(b,.22,22)})`
+    const bot = `rgb(${t(r,.12,6)},${t(g,.12,4)},${t(b,.16,14)})`
+    return `linear-gradient(180deg, ${top} 0%, ${bot} 100%)`
+  } catch {
+    return 'linear-gradient(180deg, #1a1f3a 0%, #141929 100%)'
+  }
+}
 
 const { Header, Sider, Content } = Layout
 
@@ -28,8 +43,13 @@ export default function MainLayout() {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const { token } = theme.useToken()
+  const [appearance, setAppearanceState] = useState(getAppearance())
 
-  useEffect(() => { prefetchSettings() }, [])
+  useEffect(() => {
+    prefetchSettings()
+    getSettings().then(applyFromSettings)
+    return subscribeAppearance(setAppearanceState)
+  }, [])
 
   const currentLabel = menuItems.find((i) => i.key === location.pathname)?.label ?? '账单分析'
 
@@ -47,7 +67,7 @@ export default function MainLayout() {
           left: 0,
           top: 0,
           bottom: 0,
-          background: 'linear-gradient(180deg, #1a1f3a 0%, #141929 100%)',
+          background: sidebarBg(appearance.themeColor),
           boxShadow: '2px 0 12px rgba(0,0,0,0.15)',
           transition: 'width 0.2s',
           zIndex: 100,
@@ -67,7 +87,7 @@ export default function MainLayout() {
             transition: 'all 0.2s',
           }}
         >
-          <AccountBookOutlined style={{ fontSize: 22, color: '#4096ff', flexShrink: 0 }} />
+          <AccountBookOutlined style={{ fontSize: 22, color: appearance.themeColor, flexShrink: 0 }} />
           {!collapsed && (
             <span style={{ color: '#fff', fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap', letterSpacing: 1 }}>
               账单分析
