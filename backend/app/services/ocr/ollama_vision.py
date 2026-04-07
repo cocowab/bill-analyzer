@@ -111,14 +111,25 @@ def _get_ocr_config(db: Session) -> dict:
     }
 
 
+TIMEOUT_SECONDS = 120
+
+
 async def _call_local(image_path: str, local_model: str) -> str:
     import ollama
+    import asyncio
     image_b64 = _encode_image(image_path)
-    response = ollama.chat(
-        model=local_model,
-        messages=[{"role": "user", "content": _build_prompt(), "images": [image_b64]}],
-        options={"temperature": 0, "think": False},
-        format=TRANSACTION_SCHEMA,
+
+    def _sync_call():
+        return ollama.chat(
+            model=local_model,
+            messages=[{"role": "user", "content": _build_prompt(), "images": [image_b64]}],
+            options={"temperature": 0, "think": False},
+            format=TRANSACTION_SCHEMA,
+        )
+
+    response = await asyncio.wait_for(
+        asyncio.get_event_loop().run_in_executor(None, _sync_call),
+        timeout=TIMEOUT_SECONDS,
     )
     return response["message"]["content"].strip()
 
@@ -126,7 +137,7 @@ async def _call_local(image_path: str, local_model: str) -> str:
 async def _call_remote(image_path: str, base_url: str, api_key: str, model: str) -> str:
     from openai import AsyncOpenAI
     import mimetypes
-    client = AsyncOpenAI(api_key=api_key or "dummy", base_url=base_url)
+    client = AsyncOpenAI(api_key=api_key or "dummy", base_url=base_url, timeout=TIMEOUT_SECONDS)
     image_b64 = _encode_image(image_path)
     # 检测 MIME 类型
     mime, _ = mimetypes.guess_type(image_path)
