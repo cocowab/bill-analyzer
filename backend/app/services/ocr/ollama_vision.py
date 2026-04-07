@@ -127,10 +127,7 @@ async def _call_local(image_path: str, local_model: str) -> str:
             format=TRANSACTION_SCHEMA,
         )
 
-    response = await asyncio.wait_for(
-        asyncio.get_event_loop().run_in_executor(None, _sync_call),
-        timeout=TIMEOUT_SECONDS,
-    )
+    response = await asyncio.get_running_loop().run_in_executor(None, _sync_call)
     return response["message"]["content"].strip()
 
 
@@ -164,8 +161,7 @@ async def _call_remote(image_path: str, base_url: str, api_key: str, model: str)
             },
         )
         return response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"[OCR Remote] Error: {type(e).__name__}: {e}")
+    except Exception:
         raise
 
 
@@ -265,26 +261,27 @@ async def extract_transactions_from_image(
         "remote_base_url": "", "remote_api_key": "", "remote_model": "",
     }
 
-    # 调用模型
-    if cfg["mode"] == "remote" and cfg["remote_base_url"] and cfg["remote_model"]:
-        raw_text = await _call_remote(
-            image_path, cfg["remote_base_url"], cfg["remote_api_key"], cfg["remote_model"]
-        )
-    else:
-        raw_text = await _call_local(image_path, cfg["local_model"])
-
-    # 解析 JSON（含后处理修复）
-    parsed, err = _parse_json_with_repair(raw_text)
-    if parsed is None:
-        # 自动重试一次
-        print(f"[OCR] JSON解析失败，重试: {err}")
+    async def _call() -> str:
         if cfg["mode"] == "remote" and cfg["remote_base_url"] and cfg["remote_model"]:
-            raw_text = await _call_remote(
+            return await _call_remote(
                 image_path, cfg["remote_base_url"], cfg["remote_api_key"], cfg["remote_model"]
             )
-        else:
-            raw_text = await _call_local(image_path, cfg["local_model"])
-        parsed, err = _parse_json_with_repair(raw_text)
+        return await _call_local(image_path, cfg["local_model"])
+
+    import asyncio
+    try:
+        async with asyncio.timeout(TIMEOUT_SECONDS):
+            # 调用模型
+            raw_text = await _call()
+
+            # 解析 JSON（含后处理修复）
+            parsed, err = _parse_json_with_repair(raw_text)
+            if parsed is None:
+                # 自动重试一次（共享同一个超时）
+                raw_text = await _call()
+                parsed, err = _parse_json_with_repair(raw_text)
+    except TimeoutError:
+        return {"recognized": 0, "saved": 0, "error": f"识别超时（超过 {TIMEOUT_SECONDS} 秒）"}
     if parsed is None:
         return {"recognized": 0, "saved": 0, "error": f"JSON解析失败: {err}", "raw": raw_text}
 
